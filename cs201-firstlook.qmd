@@ -30,9 +30,9 @@ Go to Tools \> Global Options \> Appearance to select a color scheme you like.
 
 I also personally like to enable these:
 
-- Tools \> Global Options \> Code \> Insert matching parens/quotes
+-   Tools \> Global Options \> Code \> Insert matching parens/quotes
 
-- Tools \> Global Options \> Console \> Show syntax highlighting in console input
+-   Tools \> Global Options \> Console \> Show syntax highlighting in console input
 
 I don't recommend rearranging your pane layout at this time.
 
@@ -40,15 +40,66 @@ I don't recommend rearranging your pane layout at this time.
 
 Try running some code
 
-```{r}
+### Load Library
 
+```{r}
+library(ggplot2)
 
 ```
+
+### Some Scripting
+
+```{r}
+# this is a comment
+quiz1 <- 88 # this is how to assign a value to a name
+quiz2 <- 94
+quiz3 <- 79
+
+quiz1
+
+# averaging
+(quiz1 + quiz2 + quiz3) / 3
+
+mean(quiz1 + quiz2 + quiz3) # not correct! just adds everything up
+mean(quiz1, quiz2, quiz3) # also wrong! only returns the first arg
+mean(c(quiz1,quiz2,quiz3))
+
+list <- c(quiz1,quiz2,quiz3)
+
+average <- mean(list)
+
+quiz3 <- 99
+quiz3
+
+average
+
+list <- c(quiz1,quiz2,quiz3)
+average <- mean(lsit)
+average
+round(average, 2)
+```
+
+### Scores
 
 ## Introducing `ggplot2`
 
 ```{r}
 
+scores <- c(88, 94, 79, 91, 85)
+scores
+
+mean(scores)
+min(scores)
+max(scores)
+length(scores)
+
+summary(scores)
+
+students <- c("a", "b", "c", "d", "e")
+students
+
+#bar plot
+barplot(scores, names)
 ```
 
 ## Extra Credit (1pt)

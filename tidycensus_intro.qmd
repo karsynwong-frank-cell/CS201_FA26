@@ -51,7 +51,7 @@ Now let's bring in the variables for our data. We'll use data specifically from 
 These variables from the American Community Survey (ACS) Data Profiles for 2024 show us the most frequently requested social, economic, housing, and demographic data. The Data Profiles summarize the data for a single geographic area, both numbers (estimates) and percents, to cover the most basic data on all topics.
 
 ```{r Import ACS Variables}
-acs_2024_variables <- load_variables(2024, "acs5/profile")
+acs_2024_variables <- load_variables(2024, "acs5/profile") 
 ```
 
 The dataframe we just created (`acs_2024_variables`) has all the info we need, but is pretty bland. Try using `reactable` for something a bit more user-friendly.
@@ -107,8 +107,8 @@ Now let's look at family poverty in Honolulu County over time
 ## Try an example of your own
 
 ```{r}
-# get the data (looking at ____)
-NAME <- get_acs(
+# get the data (looking at computer & internet access)
+mine <- get_acs(
   geography = "tract",
   variables = c(NAME = "DP02_0158"),
   state = "HI",

@@ -41,7 +41,7 @@ API stands for Application Programming Interface. Here is the idea:
 [Request your own](https://api.census.gov/data/key_signup.html) or use Amber's (below).
 
 ```{r Define API Key, message=FALSE}
-census_api_key("")
+census_api_key("602d8e9ba5f3dfb90fbd77a86f08c9589a2ad651")
 ```
 
 ## Import Variables

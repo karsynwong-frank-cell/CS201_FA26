@@ -1,7 +1,7 @@
 ---
 title: "tidycensus Intro & GitHub Collab"
 author: "Lehiwa Wong-Frank" 
-date: "`r Sys.Date()`"
+date: "`r Sys.Date(10-09-2026)`"
 format: html
 editor: visual
 toc: true

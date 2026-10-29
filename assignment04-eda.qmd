@@ -1,0 +1,160 @@
+---
+title: "Assignment 4: Exploratory Data Analysis"
+author: "Lehiwa Wong-Frank"
+date: "`r Sys.Date(10/28/2026)`"
+format: html
+editor: visual
+---
+
+## Overview
+
+Due: **Friday 9/25 11:59pm**
+
+In this assignment, you will practice Exploratory Data Analysis (EDA) by making plots from a **Kaggle dataset of your choice**.
+
+You will submit **at least 4 different plot types**, with short written interpretations for each.
+
+Part 1 is worth a total of 1 point, and Part 2 is worth 4 points (1 point for each plot, question, and interpretation).
+
+## Part 1: Get Your Data
+
+1.  Go to [Kaggle Datasets](https://www.kaggle.com/datasets), create an account, and choose a dataset that interests you. Ensure your data has:
+    1.  At least 4 variables
+    2.  At least one categorical and one continuous variable
+    3.  I recommend data that contains at least 50-100 observations
+    4.  Tip: Open the CSV on Kaggle first and skim the columns to check that it meets these requirements
+2.  Download the dataset as a CSV file.
+3.  Place the CSV in your class R project `data` folder.
+4.  Read it into R with `read_csv()`.
+
+```{r, message=FALSE}
+library(tidyverse)
+library(janitor)
+
+mydata <- read_csv("data/iris.csv") |>
+  clean_names()   # e.g., SepalLengthCm -> sepal_length_cm
+```
+
+### Describe your data
+
+Data author: Ronald A. Fisher (1936); flower measurements collected by Edgar Anderson; hosted on Kaggle by UCI Machine Learning.
+
+Link: <https://www.kaggle.com/datasets/uciml/iris>
+
+Description: This is the Iris dataset, which contains measurements of 150 iris flowers from three species: *Iris setosa*, *Iris versicolor*, and *Iris virginica*, with 50 flowers per species. For each flower, it records four measurements in centimeters (sepal length, sepal width, petal length, and petal width), along with an ID number and the species label. The species is the categorical variable and the four measurements are continuous. The dataset is often used to show how flower measurements can be used to tell species apart.
+
+### Preview your data
+
+Use some of the strategies you've learned in this class or picked up elsewhere to summarize and quickly explore your data.
+
+```{r}
+glimpse(mydata)
+head(mydata)
+colSums(is.na(mydata))   # missing values per column
+```
+
+### Summary stats
+
+Before you make plots, you must also:
+
+- Show basic summaries of your dataset, including:
+
+  - `count()` for categorical variables (to see category frequencies)
+
+  - `mean()`, `median()`, `sd()`, `min()`, `max()` for at least one numeric variable
+
+  - Remember to use `na.rm = TRUE` if you have missing values that affect summaries!
+
+```{r}
+# Category counts
+mydata |> count(species)
+
+# Numeric summary (petal length as the example)
+mydata |>
+  summarize(mean   = mean(petal_length_cm, na.rm = TRUE),
+            median = median(petal_length_cm, na.rm = TRUE),
+            sd     = sd(petal_length_cm, na.rm = TRUE),
+            min    = min(petal_length_cm, na.rm = TRUE),
+            max    = max(petal_length_cm, na.rm = TRUE))
+```
+
+Write 2–3 sentences here: What do the category counts tell you? What does the numeric summary show about spread, center, or outliers?
+
+The category counts show a perfectly balanced dataset, with 50 flowers for each of the three species, so no species is over- or under-represented. For petal length, the mean (about 3.76 cm) is noticeably lower than the median (about 4.35 cm), and the standard deviation (about 1.77 cm) is large relative to the mean, which suggests the values are spread widely rather than clustered around one center. The range runs from 1.0 to 6.9 cm with no extreme outliers, so the wide spread likely comes from the species having very different petal sizes, which I could check by summarizing petal length by species.
+
+## Part 2: Visualize Your Data
+
+Create **at least 4 plots**, each of a different type. Your plots may share variables, but each one should answer a **different question** about your data. At least one plot must include a variable that isn't in the others.
+
+Each plot should have:
+
+- A title and labeled axes
+
+- A short interpretation (2-3 sentences) underneath
+
+  - Sample interpretation: (boxplot of `price` by `cut` from `diamonds` data): *Ideal diamonds have the lowest median price, which is surprising since Ideal is the best cut. Every cut also has a lot of very expensive outliers. One possible reason for the low Ideal prices is that Ideal diamonds might be smaller on average, which I could check by plotting carat by cut.*
+
+Use the EDA Part 3 notes as your reference. Since this is an EDA assignment, your plots can look plain, but consider adding colors, themes, or interactivity for interpretability and visual appeal if you know how.
+
+### Plot 1
+
+```{r}
+# Plot 1: Histogram
+ggplot(mydata, aes(x = petal_length_cm)) +
+  geom_histogram(bins = 20, fill = "steelblue", color = "white") +
+  labs(title = "Distribution of Petal Length",
+       x = "Petal length (cm)", y = "Count")
+
+```
+
+Question this plot answers: How are petal lengths distributed across all 150 flowers?
+
+Interpretation: The petal lengths form two separate groups instead of one smooth hump. About 50 flowers have very short petals between roughly 1 and 2 cm, then there’s a clear gap until about 3 cm, where a second, wider group runs from about 3 to 7 cm and peaks around 5 cm. The gap suggests these are distinct groups, probably species, which I could check by coloring the histogram by species.
+
+### Plot 2
+
+```{r}
+# Plot 2: Boxplot
+ggplot(mydata, aes(x = species, y = sepal_length_cm, fill = species)) +
+  geom_boxplot(show.legend = FALSE) +
+  labs(title = "Sepal Length by Species",
+       x = "Species", y = "Sepal length (cm)")
+```
+
+Question this plot answers: Does sepal length differ across the three species?
+
+Interpretation: Sepal length increases from setosa (median about 5 cm) to versicolor (about 5.9 cm) to virginica (about 6.5 cm). The boxes overlap a little between versicolor and virginica, so sepal length alone can’t perfectly tell those two apart, though setosa is mostly separate from both. Virginica also has one outlier, a flower with a sepal length of about 4.9 cm, much shorter than the rest of its species. I could look at that row to see whether it’s a measurement error or just an unusually small flower.
+
+### Plot 3
+
+```{r}
+# Plot 3: Scatterplot
+ggplot(mydata, aes(x = petal_length_cm, y = petal_width_cm, color = species)) +
+  geom_point(size = 2, alpha = 0.7) +
+  labs(title = "Petal Width vs. Petal Length",
+       x = "Petal length (cm)", y = "Petal width (cm)", color = "Species")
+```
+
+Question this plot answers: How are petal length and petal width related, and do the species form distinct groups?
+
+Interpretation: Petal length and petal width have a strong positive relationship, so flowers with longer petals also tend to have wider petals. The species form fairly distinct groups: setosa sits alone in the lower left (lengths under 2 cm, widths under about 0.6 cm), versicolor is in the middle, and virginica is in the upper right with the largest petals. Versicolor and virginica overlap slightly around 5 cm in length, but setosa is completely separate, so petal measurements look very useful for telling species apart, which I could compare against sepal measurements.
+
+### Plot 4
+
+```{r}
+# Plot 4: Violin plot (uses sepal_width_cm, which appears nowhere else)
+ggplot(mydata, aes(x = species, y = sepal_width_cm, fill = species)) +
+  geom_violin(show.legend = FALSE) +
+  labs(title = "Sepal Width by Species",
+       x = "Species", y = "Sepal width (cm)")
+```
+
+Question this plot answers: How does the spread of sepal width compare across species?
+
+Interpretation: Setosa tends to have the widest sepals, centered around 3.4 cm, while versicolor has the narrowest, centered closer to 2.8 cm, and virginica sits in between at about 3 cm. The three shapes overlap a lot, so unlike the petal measurements in Plot 3, sepal width can’t clearly separate the species. Setosa also has the greatest spread, ranging from about 2.3 to 4.4 cm, so I could check whether that comes from a few unusually wide flowers by looking at the highest values.
+
+------------------------------------------------------------------------
+
+# Push to GitHub AND submit link on Canvas!!
+
+Assignment is due Friday 9/25 at 11:59 pm.

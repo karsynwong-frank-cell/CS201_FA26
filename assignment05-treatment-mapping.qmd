@@ -1,0 +1,266 @@
+---
+title: "Assignment 5: Substance Use Treatment Mapping"
+subtitle: "Lehiwa Wong-Frank"
+author: "Amber Camp"
+date: "`r Sys.Date(10/28/2026)`"
+format: html
+editor: visual
+toc: true
+---
+
+## Overview
+
+Due: **Friday 10/2, 11:59pm**
+
+In this assignment, you will apply analytic and mapping skills to the 2024 TEDS-D dataset from SAMHSA.
+
+Refer to the following files for reference, though some of what is asked of you here will require logic beyond what we discussed in class:
+
+- week06-treatment-mapping-part1.qmd
+
+- week06-treatment-mapping-part2.qmd
+
+**Before you start:** keep the [codebook](https://www.samhsa.gov/data/system/files/media-puf-file/TEDS-D-2024-DS0001-info-codebook_v1_0.pdf) open in another tab. Every question below depends on knowing what the values in a column actually mean. Don't assume — look it up.
+
+**Time estimate:** about three-four hours total. Question 1 should take you ten minutes. If you are stuck on one thing for more than twenty minutes, ask your classmates or get in touch with me. Being stuck is normal. Staying stuck quietly by yourself is not :)
+
+## Load Packages and Data
+
+```{r}
+#| label: setup
+#| message: false
+#| warning: false
+
+library(tidyverse)
+library(janitor)
+library(sf) # "simple features" for spatial data
+library(urbnmapr) # access to US state/country shapefiles for mapping
+library(ggiraph) # makes ggplot charts interactive
+options(scipen = 99) # turns off scientific notation
+```
+
+This is the cleaned dataset you saved at the end of Part 1.
+
+```{r}
+#| label: read-data
+
+teds_d <- readRDS("data/teds_d_clean.rds")
+```
+
+## Question 1: Warm-up
+
+Before mapping anything, get oriented in the data.
+
+a)  Using `tabyl()`, show the breakdown of `reason` (reason for discharge). Which reason is most common, and what percentage of all discharges does it account for?
+
+b)  Make one bar chart showing the number of discharges by `services_d` (type of treatment service). Give it an informative title and axis labels.
+
+c)  In a sentence or two: what does the `reason` value "Transferred to another treatment program or facility" mean for our completion percentages? If a state transfers a lot of patients, would its completion rate look higher or lower than a state that transfers very few?
+
+> **Full credit:** a working `tabyl()`, a readable labeled bar chart, and a sentence or two showing you thought about part (c). There is no trick in this question!
+
+```{r}
+#| label: q1
+# (a)
+teds_d |>
+  tabyl(reason) |>
+  arrange(desc(n)) |>
+  adorn_pct_formatting(digits = 1)
+
+# (b)
+teds_d |>
+  count(services_d) |>
+  ggplot(aes(x = n, y = fct_reorder(services_d, n))) +
+  geom_col(fill = "steelblue") +
+  scale_x_continuous(labels = scales::comma) +
+  labs(title = "Discharges by Type of Treatment Service, 2024",
+       x = "Number of discharges", y = "Service type at discharge")
+```
+
+**Answer to (a):** The most common reason for discharge is “Treatment completed,” which accounts for about 47.8% of all discharges. The next most common reasons are dropping out of treatment (about 24.9%) and transfer to another program or facility (about 17.0%).
+
+**Answer to (b):** (produce a bar chart in the code chunk above): The bar chart above shows the number of discharges for each type of treatment service. Non-intensive outpatient treatment is by far the most common, with roughly 640,000 discharges, which is about half of all discharges. Free-standing residential detox and short-term residential rehab come next at around 170,000 to 180,000 each, while hospital-based rehab and ambulatory detox have the fewest discharges.
+
+**Answer to (c):** A transfer is not a completion, so transferred patients are counted as “not completed” in a completion percentage, even though they may go on to finish treatment at another program. A state that transfers a lot of patients would therefore look lower than a state that transfers very few, even if its patients do just as well in the end. This means completion rates can be misleading when comparing states, unless transfers are accounted for (for example, by excluding them from the denominator).
+
+## Question 2: Mapping no use at discharge
+
+Make **one [*interactive*]{.underline} map** with `ggiraph` showing, for each state, the percentage of [completed treatment]{.underline} episodes that ended with [no use at discharge]{.underline}.
+
+In other words: among the episodes where `reason` is "Treatment completed," what share had `freq1_d` equal to "no use"?
+
+Work through this in bite-sized steps, like we did in Part 2. You will need to filter, group, summarize, build an index, join, and plot. Write one step at a time and look at the result before moving on.
+
+### The denominator decision
+
+About a third of the `freq1_d` values in this dataset are "unknown." That means you have to decide what your denominator is, and there is more than one defensible answer:
+
+- **All** completed episodes, counting "unknown" in the denominator, or
+
+- Only completed episodes where frequency of use was **actually recorded**.
+
+Pick one. **Below your map, write one sentence saying which denominator you used and why.** Either choice can earn full credit. Missing description earns no points for this portion.
+
+### Your map must:
+
+- be interactive (rendered with `girafe()`)
+
+- show a tooltip with the state name and the percentage, rounded to two decimal places
+
+- have a title and a legend label that say what is being shown
+
+- handle states with no data honestly (remember Friday in class)
+
+> **Full credit:** one interactive map meeting the four requirements above, plus your denominator sentence. It does not have to be beautiful, only correct and readable.
+
+```{r}
+#| label: q2
+# ---- Step 1: % of completed episodes with no use at discharge, by state ----
+no_use_by_state <- teds_d |>
+  mutate(reason_chr = str_to_lower(as.character(reason)),
+         freq_chr   = str_to_lower(as.character(freq1_d))) |>
+  # completed episodes only
+  filter(str_detect(reason_chr, "treatment completed") | reason_chr == "1") |>
+  # keep only episodes where use at discharge was recorded (Option B denominator)
+  filter(!is.na(freq_chr), !str_detect(freq_chr, "unknown|missing"), freq_chr != "-9") |>
+  group_by(stfips) |>
+  summarize(n_completed = n(),
+            n_no_use    = sum(str_detect(freq_chr, "no use") | freq_chr == "1"),
+            pct_no_use  = n_no_use / n_completed * 100) |>
+  mutate(st_chr = str_to_lower(str_trim(as.character(stfips))))
+
+if (nrow(no_use_by_state) == 0) {
+  stop("No rows left after filtering. Run unique(teds_d$reason) and unique(teds_d$freq1_d) and send me the output.")
+}
+
+# ---- Step 2: get the map and match states by name OR FIPS code ----
+states_sf <- get_urbn_map("states", sf = TRUE)
+states_sf <- sf::st_set_crs(states_sf, sf::st_crs(states_sf))   # fixes the old-style CRS warning
+
+lookup <- states_sf |>
+  sf::st_drop_geometry() |>
+  transmute(state_fips, name_key = str_to_lower(state_name))
+
+no_use_by_state <- no_use_by_state |>
+  left_join(lookup, by = c("st_chr" = "name_key")) |>      # works if stfips holds state names
+  mutate(state_fips = coalesce(state_fips,                 # works if stfips holds FIPS numbers
+                               if_else(str_detect(st_chr, "^[0-9]+$"),
+                                       str_pad(st_chr, 2, pad = "0"),
+                                       NA_character_)))
+
+# ---- Step 3: join to the map and build tooltips ----
+map_data <- states_sf |>
+  left_join(select(no_use_by_state, state_fips, pct_no_use), by = "state_fips") |>
+  mutate(tooltip = if_else(is.na(pct_no_use),
+                           paste0(state_name, ": no data"),
+                           paste0(state_name, ": ", round(pct_no_use, 2), "%")))
+
+message(sum(!is.na(map_data$pct_no_use)), " states have data")
+
+# ---- Step 4: interactive map ----
+p <- ggplot(map_data) +
+  geom_sf_interactive(aes(fill = pct_no_use, tooltip = tooltip, data_id = state_name),
+                      color = "white") +
+  scale_fill_viridis_c(na.value = "grey80",
+                       name = "% of completed\nepisodes with\nno use at\ndischarge") +
+  labs(title = "No Substance Use at Discharge Among\nCompleted Treatment Episodes, 2024",
+       caption = "Grey states have no data in the 2024 TEDS-D file.") +
+  theme_void()
+
+girafe(ggobj = p)
+```
+
+**Denominator I used, and why:** I used only completed treatment episodes where frequency of use at discharge was actually recorded, so “unknown” values were left out of the denominator. About a third of `freq1_d` values are unknown, and an unknown can’t tell us whether the person used. Counting those episodes would make states with weaker reporting look like they have lower rates of no use, even if their patients did just as well.
+
+## Question 3: Service type and length of stay
+
+Treatment outcomes can vary depending on the type of service a patient receives and how long they stay in treatment.
+
+Investigate how **completion rates** differ across **service type** (`services_d`) and **length of stay** (`los`).
+
+- Create **two** visualizations: at least one focused on service type, and at least one focused on length of stay. These do not need to be maps, and they do not need to be interactive. Pick whatever chart type makes the pattern easiest to see.
+
+- Then write a short summary (3-ish sentences, full grammatical sentences) explaining the main patterns you observe.
+
+**One warning:** look up `los` in the codebook *before* you calculate anything with it. Code that runs without an error can still give you a meaningless answer.
+
+> **Full credit:** two labeled visualizations that actually show the comparison you say they show, plus a summary that describes a real pattern in your own output. You are not graded on finding the "right" pattern. You are graded on whether your summary matches your charts.
+
+```{r}
+#| label: q3
+#| label: q3
+#| warning: false
+
+# ---- Step 1: flag completed episodes (flexible matching) and recode length of stay ----
+teds_d <- teds_d |>
+  mutate(
+    reason_chr = str_to_lower(as.character(reason)),
+    completed  = str_detect(reason_chr, "treatment completed") | reason_chr == "1",
+    los_num    = as.numeric(as.character(los)),
+    los_group  = case_when(
+      los_num <= 7  ~ "1-7 days",
+      los_num <= 14 ~ "8-14 days",
+      los_num <= 30 ~ "15-30 days",
+      los_num == 31 ~ "31-45 days",
+      los_num == 32 ~ "46-60 days",
+      los_num == 33 ~ "61-90 days",
+      los_num == 34 ~ "91-120 days",
+      los_num == 35 ~ "121-180 days",
+      los_num == 36 ~ "181-365 days",
+      los_num == 37 ~ "Over 1 year"),
+    los_group = factor(los_group,
+                       levels = c("1-7 days", "8-14 days", "15-30 days", "31-45 days",
+                                  "46-60 days", "61-90 days", "91-120 days",
+                                  "121-180 days", "181-365 days", "Over 1 year")))
+
+# Sanity check: overall completion should be about 48%
+message("Overall completion rate: ", round(mean(teds_d$completed) * 100, 1), "%")
+
+# ---- Step 2: completion rate by service type ----
+by_service <- teds_d |>
+  group_by(services_d) |>
+  summarize(completion_rate = mean(completed) * 100, .groups = "drop")
+
+ggplot(by_service, aes(x = completion_rate,
+                       y = fct_reorder(services_d, completion_rate))) +
+  geom_col(fill = "steelblue") +
+  labs(title = "Completion Rate by Type of Treatment Service, 2024",
+       x = "% of discharges with treatment completed",
+       y = "Service type at discharge")
+
+# ---- Step 3: completion rate by length of stay ----
+by_los <- teds_d |>
+  filter(!is.na(los_group)) |>
+  group_by(los_group) |>
+  summarize(completion_rate = mean(completed) * 100, .groups = "drop")
+
+ggplot(by_los, aes(x = los_group, y = completion_rate)) +
+  geom_col(fill = "darkorange") +
+  labs(title = "Completion Rate by Length of Stay, 2024",
+       x = "Length of stay",
+       y = "% of discharges with treatment completed") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+**Summary:** Completion rates differ a lot by service type. Detox services have the highest rates, about 77% for 24-hour hospital detox and about 74% for ambulatory detox, while ambulatory intensive outpatient has the lowest at about 30%. Length of stay shows a much flatter pattern, with completion staying roughly between 43% and 52% for stays up to a year and then dropping to about 35% for stays longer than a year. Completion does not steadily rise with longer stays, and the high rate for very short stays (1 to 7 days, about 51%) may reflect detox programs, which are brief by design and have high completion rates, so service type and length of stay are likely tangled together.
+
+## Extra Credit (optional, up to 2 pts)
+
+#### Again, this is meant to *stretch* you, not *stress* you!
+
+Make one visualization that shows service type and length of stay **together**–that is, how completion rate varies across both at once. Faceting is one way, but there are others.
+
+Then, in a sentence, say what this combined view shows that your two separate charts in Question 3 could not.
+
+```{r}
+#| label: extra-credit
+
+```
+
+**What the combined view adds:**
+
+------------------------------------------------------------------------
+
+## Push to GitHub AND submit link on Canvas!
+
+Assignment is due **Friday 10/2, 11:59pm**.
